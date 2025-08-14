@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<title>Soru Çarkı</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f8f8f8;
+    text-align: center;
+    padding: 40px;
+    position: relative;
+    min-height: 700px;
+  }
+  h1 {
+    margin-top: 0;
+    margin-bottom: 120px;
+    position: relative;
+    z-index: 20;
+  }
+  #wheel-container {
+    width: 500px;
+    height: 500px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 5;
+  }
+  canvas {
+    border: 5px solid #333;
+    border-radius: 50%;
+    background: white;
+  }
+  #pointer {
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 40px solid red;
+    position: absolute;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+  }
+  button {
+    margin-top: 35px;
+    padding: 12px 25px;
+    font-size: 18px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #218838;
+  }
+  #result {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    min-height: 60px;
+    white-space: pre-line;
+  }
+  #videoPopup {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #videoPopup.show {
+    display: flex;
+    opacity: 1;
+  }
+  #localVideo {
+    width: 800px;
+    height: 450px;
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    background: black;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎯 Soru Çarkı</h1>
+
+<div id="wheel-container">
+  <canvas id="wheel" width="500" height="500"></canvas>
+</div>
+
+<div id="pointer"></div>
+
+<button onclick="spinWheel()">Çevir!</button>
+
+<div id="result"></div>
+
+<div id="videoPopup">
+  <video id="localVideo" controls></video>
+</div>
+
+<audio id="spinSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_4e4faff739.mp3" preload="auto"></audio>
+
+<script>
+  let totalSegments = 50; 
+  let numbers = Array.from({ length: totalSegments }, (_, i) => i + 1);
+
+  let questions = [
+    "Batı Karadeniz bölgesinde RTÜK lisanslı yasal lisanslı tek televizyon kanalı nedir?"
+  ];
+
+  const wheelCanvas = document.getElementById("wheel");
+  const ctx = wheelCanvas.getContext("2d");
+  const spinSound = document.getElementById("spinSound");
+  const resultDiv = document.getElementById("result");
+  const videoPopup = document.getElementById("videoPopup");
+  const localVideo = document.getElementById("localVideo");
+
+  let arcSize = (2 * Math.PI) / totalSegments;
+  let startAngle = 0;
+  let spinning = false;
+  let rotation = 0;
+  let currentIndex = null;
+
+  function drawWheel() {
+    arcSize = (2 * Math.PI) / totalSegments;
+    for (let i = 0; i < totalSegments; i++) {
+      const angle = startAngle + i * arcSize;
+      ctx.beginPath();
+      ctx.moveTo(250, 250);
+      ctx.arc(250, 250, 250, angle, angle + arcSize, false);
+      ctx.fillStyle = i % 2 === 0 ? "#add8e6" : "#ffffff";
+      ctx.fill();
+      ctx.save();
+      ctx.translate(250, 250);
+      ctx.rotate(angle + arcSize / 2);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText(numbers[i], 230, 5);
+      ctx.restore();
+    }
+  }
+
+  function spinWheel() {
+    if (spinning || totalSegments === 0) return;
+    spinning = true;
+    spinSound.currentTime = 0;
+    spinSound.play();
+
+    const spins = Math.floor(Math.random() * 3) + 5;
+    const finalAngle = Math.random() * 360;
+    const totalRotation = spins * 360 + finalAngle;
+    const duration = 4000;
+    const start = performance.now();
+
+    function animate(time) {
+      const elapsed = time - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const easing = 1 - Math.pow(1 - progress, 3);
+      rotation = totalRotation * easing;
+      startAngle = (rotation * Math.PI) / 180;
+      ctx.clearRect(0, 0, 500, 500);
+      drawWheel();
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        spinning = false;
+        const degrees = rotation % 360;
+        let index = Math.floor((360 - degrees) / (360 / totalSegments)) % totalSegments;
+        if (index < 0) index += totalSegments;
+        currentIndex = index;
+        showVideo(index);
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+
+  function showVideo(index) {
+    videoPopup.classList.add("show");
+    localVideo.src = "WhatsApp Video 2025-08-14 at 18.23.24.mp4"; // yerel video
+    localVideo.currentTime = 0;
+    localVideo.play();
+    resultDiv.textContent = "";
+  }
+
+  localVideo.addEventListener("ended", () => {
+    showQuestion();
+  });
+
+  function showQuestion() {
+    const index = currentIndex;
+    videoPopup.classList.remove("show");
+    localVideo.pause();
+    if (index !== null && questions[0]) {
+      resultDiv.textContent = `Numara: ${numbers[index]}\nSoru: ${questions[0]}`;
+    } else {
+      resultDiv.textContent = "Soru bulunamadı.";
+    }
+    currentIndex = null;
+  }
+
+  videoPopup.addEventListener("click", () => {
+    if (!spinning && currentIndex !== null) {
+      showQuestion();
+    }
+  });
+
+  drawWheel();
+</script>
+
+</body>
+</html>
